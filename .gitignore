@@ -1,0 +1,30 @@
+# Data (never commit WESAD; too big, and its license doesn't allow sharing it)
+data/*
+!data/README.md
+*.pkl
+*.npz
+
+# Python cache files
+__pycache__/
+*.pyc
+
+
+# Virtual environments
+.venv/
+venv/
+
+# Jupyter/Colab checkpoints
+.ipynb_checkpoints/
+
+# Trained models (keep these on Google Drive, not GitHub)
+*.pt
+*.pth
+results/checkpoints/
+
+# Secrets (tokens, passwords)
+.env
+
+# OS junk files
+.DS_Store
+Thumbs.db
+
