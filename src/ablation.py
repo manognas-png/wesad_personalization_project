@@ -27,7 +27,7 @@ def make_feature_sets(all_columns):
     eda = [column for column in all_columns if column.startswith("eda_")]
     temp = [column for column in all_columns if column.startswith("temp_")]
     acc = [column for column in all_columns if column.startswith("acc_")]
-    heart = ["bvp_hr_mean"] + HRV_COLUMNS
+    heart = ["bvp_hr_mean"] + HRV_COLUMNS  # peak-based heart features
     return {
         "A_all": list(all_columns),
         "B_no_valid_frac": [column for column in all_columns if column != QUALITY_COLUMN],
@@ -35,6 +35,9 @@ def make_feature_sets(all_columns):
         # Same as C but without the columns that are mostly NaN under stress.
         # If C is only good because of WHERE the NaNs are, this should be worse.
         "C_no_hrv": eda + temp + ["bvp_hr_mean"],
+        # Like C_no_hrv, but heart rate comes from the spectrum, so it is never
+        # missing (rejected as main set: it is often wrong, and adds nothing to D)
+        "C2_spectral_hr": eda + temp + ["bvp_hr_spectral"],
         "D_eda_temp": eda + temp,
         "E_acc_only": acc,
         "F_valid_frac_only": [QUALITY_COLUMN],

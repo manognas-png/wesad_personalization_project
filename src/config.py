@@ -38,3 +38,11 @@ STRIDE_SEC = 5                      # new window every 5 s (windows overlap)
 CALIBRATION_MINUTES = [0, 1, 2, 3]   # minutes PER CONDITION given to the model (total = 3x)
 TEST_START_MIN = 3                    # fixed test set: windows starting >= 3 min into each condition
 RANDOM_SEED = 42
+
+# ---------- Features ----------
+# Main feature set: EDA + TEMP only. All BVP features (HR, HRV, signal quality)
+# and ACC are left out on purpose; see the note at the top of src/features.py.
+MAIN_FEATURES = [
+    "eda_mean", "eda_std", "eda_slope", "eda_scr_count",
+    "temp_mean", "temp_std", "temp_slope",
+]

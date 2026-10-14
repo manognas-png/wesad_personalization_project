@@ -3,11 +3,21 @@
 Run from the repo root:  python -m src.features   (after python -m src.load)
 
 Nothing is normalized here: scaling happens inside each model's pipeline.
+
+Why the main feature set (config.MAIN_FEATURES) has no heart rate:
+- Peak-based HR (bvp_hr_mean) is missing in 46% of stress windows, because
+  wrist motion during the stress task breaks beat detection. HRV is worse
+  (81% missing under stress).
+- Spectral HR (bvp_hr_spectral) never goes missing but is often wrong:
+  MAE 11.5 bpm vs. bvp_hr_mean overall, 25 bpm under stress, usually far too low.
+- ACC and bvp_ibi_valid_frac are left out too: they mostly measure movement,
+  not stress.
+All of these are still computed and saved here, so they can be studied later.
 """
 import neurokit2 as nk
 import numpy as np
 import pandas as pd
-from scipy.signal import resample_poly
+from scipy.signal import resample_poly, welch
 from tqdm import tqdm
 
 from src import config
@@ -29,6 +39,11 @@ IBI_MAX_MEDIAN_DEV = 0.20       # reject IBIs more than 20% away from the window
 MIN_IBI_VALID_FRAC = 0.60       # below this the window is too noisy for HRV
 MIN_VALID_BEATS = 30            # below this there are too few beats for HRV or HR
 NN50_MS = 50                    # pNN50 counts beat-to-beat changes bigger than 50 ms
+
+# ---------- Spectral heart rate ----------
+HR_BAND_HZ = (0.7, 3.0)         # 42-180 bpm, where we look for the heartbeat frequency
+WELCH_SEGMENT_SEC = 20          # the 60 s window is cut into overlapping 20 s pieces
+WELCH_NFFT = 4096               # zero-padding: frequency grid of 32/4096 Hz = 0.47 bpm
 
 # ---------- SCR cleaning ----------
 SCR_MIN_AMPLITUDE_US = 0.01     # smallest sweat response we count, in microsiemens
@@ -69,10 +84,29 @@ def valid_ibi_mask(ibi_ms):
     return in_range & near_median
 
 
+def spectral_hr(bvp):
+    """Heart rate (bpm) from the strongest rhythm in the BVP window.
+
+    The pulse is the dominant repeating pattern in BVP, so its frequency shows
+    up as the biggest peak in the power spectrum. No single beat has to be
+    found, so this still works when peak detection fails on a noisy window.
+    """
+    # Welch = average the spectra of overlapping pieces, which smooths out noise
+    freqs, power = welch(bvp, fs=config.TARGET_FS,
+                         nperseg=WELCH_SEGMENT_SEC * config.TARGET_FS, nfft=WELCH_NFFT)
+    low, high = HR_BAND_HZ
+    in_band = (freqs >= low) & (freqs <= high)
+    band_power = power[in_band]
+    if not np.all(np.isfinite(band_power)) or band_power.max() <= 0:
+        return np.nan  # flat or broken signal: there is no peak to pick
+    return 60 * freqs[in_band][np.argmax(band_power)]  # Hz -> beats/min
+
+
 def bvp_features(bvp):
     """Heart rate, heart-rate variability and signal quality from one BVP window."""
     features = {"bvp_hr_mean": np.nan, "bvp_sdnn": np.nan, "bvp_rmssd": np.nan,
-                "bvp_pnn50": np.nan, "bvp_ibi_valid_frac": 0.0}
+                "bvp_pnn50": np.nan, "bvp_ibi_valid_frac": 0.0,
+                "bvp_hr_spectral": spectral_hr(bvp)}
     try:
         # Upsample 32 -> 128 Hz BEFORE finding peaks, so each beat is timed finely
         bvp_fine = resample_poly(bvp, BVP_PEAK_FS // config.TARGET_FS, 1)

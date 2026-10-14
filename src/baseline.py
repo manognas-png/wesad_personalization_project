@@ -15,7 +15,7 @@ from sklearn.preprocessing import StandardScaler
 from tqdm import tqdm
 
 from src import config
-from src.features import FEATURES_CSV, META_COLUMNS
+from src.features import FEATURES_CSV
 
 BASELINE_CSV = config.RESULTS_DIR / "baseline_generic.csv"
 
@@ -73,7 +73,7 @@ def evaluate_subject(features, feature_columns, test_subject):
 
 def main():
     features = pd.read_csv(FEATURES_CSV)
-    feature_columns = [column for column in features.columns if column not in META_COLUMNS]
+    feature_columns = config.MAIN_FEATURES  # EDA + TEMP, see src/features.py
 
     rows = []
     for subject in tqdm(config.SUBJECTS, desc="LOSO"):
