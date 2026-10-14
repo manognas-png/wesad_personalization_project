@@ -35,7 +35,6 @@ WINDOW_SEC = 60                     # each window = 60 s of signal
 STRIDE_SEC = 5                      # new window every 5 s (windows overlap)
 
 # ---------- Personalization ----------
-CALIBRATION_MINUTES = [0, 1, 2, 5, 10]  # personal data given to the model
-CALIBRATION_GAP_SEC = WINDOW_SEC        # gap between calibration and test windows
-                                        # so overlapping windows don't leak
+CALIBRATION_MINUTES = [0, 1, 2, 3]   # minutes PER CONDITION given to the model (total = 3x)
+TEST_START_MIN = 3                    # fixed test set: windows starting >= 3 min into each condition
 RANDOM_SEED = 42
