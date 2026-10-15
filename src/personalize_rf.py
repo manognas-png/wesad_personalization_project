@@ -50,9 +50,9 @@ def is_calibration(features, k):
     return features["condition_time_sec"] + config.WINDOW_SEC <= k * 60
 
 
-def is_test(features):
-    """The fixed test set: windows starting >= TEST_START_MIN into their condition."""
-    return features["condition_time_sec"] >= config.TEST_START_MIN * 60
+def is_test(features, test_start_sec=config.TEST_START_MIN * 60):
+    """The fixed test set: windows starting >= test_start_sec into their condition."""
+    return features["condition_time_sec"] >= test_start_sec
 
 
 def check_no_overlap(features):
@@ -91,7 +91,7 @@ def print_sanity_counts(features):
 
 # ---------- Personalization tricks ----------
 
-def baseline_normalize(features, k):
+def baseline_normalize(features, k, feature_columns=FEATURES):
     """Subtract each subject's mean over their own first k minutes of BASELINE.
 
     Label-free onboarding: "sit still for k minutes", then everything that
@@ -100,10 +100,10 @@ def baseline_normalize(features, k):
     reference uses only that subject's own calibration windows, never test ones.
     """
     is_reference = (features["label"] == BASELINE_LABEL) & is_calibration(features, k)
-    reference_mean = features[is_reference].groupby("subject")[FEATURES].mean()
+    reference_mean = features[is_reference].groupby("subject")[feature_columns].mean()
     normalized = features.copy()
     # reference_mean.loc[subjects] repeats each subject's mean once per window
-    normalized[FEATURES] = (features[FEATURES].to_numpy()
+    normalized[feature_columns] = (features[feature_columns].to_numpy()
                             - reference_mean.loc[features["subject"]].to_numpy())
     return normalized
 
@@ -119,13 +119,14 @@ def person_weight(n_others, n_person):
 
 # ---------- Training and scoring ----------
 
-def fit_and_score(train, test, label_map, sample_weight=None):
+def fit_and_score(train, test, label_map, sample_weight=None, feature_columns=FEATURES):
     """Fit a fresh imputer -> scaler -> RF pipeline on train, score it on test."""
     model = RandomForestClassifier(n_estimators=300, random_state=config.RANDOM_SEED, n_jobs=-1)
     pipeline = make_pipeline(model)
     # "model__sample_weight" passes the weights to the step named "model" only
-    pipeline.fit(train[FEATURES], train["label"].map(label_map), model__sample_weight=sample_weight)
-    predicted = pipeline.predict(test[FEATURES])
+    pipeline.fit(train[feature_columns], train["label"].map(label_map),
+                 model__sample_weight=sample_weight)
+    predicted = pipeline.predict(test[feature_columns])
     y_test = test["label"].map(label_map)
     return {"f1_macro": f1_score(y_test, predicted, average="macro"),
             "accuracy": accuracy_score(y_test, predicted)}
